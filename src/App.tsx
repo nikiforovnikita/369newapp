@@ -1,5 +1,5 @@
-import React, { useEffect, lazy, Suspense } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import { useAppStore } from './store';
 import { TodayPage } from './pages/Today';
@@ -16,25 +16,38 @@ import { DevPage, NotFoundPage } from './pages/Dev';
 function AppContent() {
   const profile = useAppStore(s => s.profile);
   const loadUser = useAppStore(s => s.loadUser);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     loadUser();
   }, [loadUser]);
 
+  useEffect(() => {
+    // Redirect logic
+    if (profile === null) {
+      // Still loading
+      return;
+    }
+
+    const isOnboarding = location.pathname === '/onboarding';
+    const isPlayer = location.pathname.startsWith('/play/');
+
+    // If no profile and not on onboarding/player, redirect to onboarding
+    if (!profile.onboardingDone && !isOnboarding && !isPlayer) {
+      navigate('/onboarding', { replace: true });
+      return;
+    }
+
+    // If profile done and on onboarding, redirect to home
+    if (profile.onboardingDone && isOnboarding) {
+      navigate('/', { replace: true });
+      return;
+    }
+  }, [profile, location.pathname, navigate]);
+
   // Loading state
   if (profile === null) {
-    // Check if profile exists in storage
-    const hasProfile = localStorage.getItem('pk:user:profile');
-    if (!hasProfile) {
-      // No profile - redirect to onboarding
-      return (
-        <Routes>
-          <Route path="/onboarding" element={<OnboardingPage />} />
-          <Route path="*" element={<Navigate to="/onboarding" replace />} />
-        </Routes>
-      );
-    }
-    // Profile exists but not loaded yet - show loading
     return (
       <div className="min-h-dvh flex items-center justify-center bg-bg">
         <div className="text-center">
@@ -42,16 +55,6 @@ function AppContent() {
           <p className="text-body-sm text-ink-3">Загрузка...</p>
         </div>
       </div>
-    );
-  }
-
-  // Profile loaded but onboarding not done
-  if (!profile.onboardingDone) {
-    return (
-      <Routes>
-        <Route path="/onboarding" element={<OnboardingPage />} />
-        <Route path="*" element={<Navigate to="/onboarding" replace />} />
-      </Routes>
     );
   }
 
