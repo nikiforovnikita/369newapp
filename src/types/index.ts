@@ -28,7 +28,6 @@ export interface ClassItem {
   level: Level;
   durationSec: number;
   posterUrl: string;
-  palette?: string[];
   videoUrl: string;
   tags: string[];
   isNew?: boolean;
@@ -42,7 +41,6 @@ export interface Program {
   id: string;
   title: string;
   coverUrl: string;
-  palette?: string[];
   teacherId: string;
   categoryIds: string[];
   level: Level;

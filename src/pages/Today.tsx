@@ -3,8 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Filter } from 'lucide-react';
 import { SearchField, ChipRow, Chip, SectionHeader, Carousel, Skeleton, EmptyState, PillButton } from '../components/ui';
 import { ProgramCard, CollectionCard, HeroCard, ClassRow, ContinueCard, LiveBanner } from '../components/domain';
-import { CoverFlow } from '../components/CoverFlow';
-import type { CoverFlowItem } from '../components/CoverCard';
 import { getGreeting, getLiveStatus } from '../lib/format';
 import { repository } from '../lib/repository';
 import { useAppStore } from '../store';
@@ -170,30 +168,15 @@ export function TodayPage() {
           </section>
         )}
 
-        {/* New Programs - CoverFlow */}
+        {/* New Programs */}
         {newPrograms.length > 0 && (
-          <section className="pb-6 -mx-5">
-            <div className="px-5 mb-3">
-              <SectionHeader title="Новые программы" action={{ label: 'Все', onClick: () => navigate('/search') }} />
-            </div>
-            <CoverFlow
-              items={newPrograms.map((p, i) => {
-                const teacher = teacherMap.get(p.teacherId);
-                return {
-                  id: p.id,
-                  title: p.title,
-                  subtitle: teacher?.name,
-                  posterUrl: p.coverUrl,
-                  palette: p.palette || ['#8F8C86', '#6F6C66', '#9A968E'],
-                  kind: 'program' as const,
-                  href: `/program/${p.id}`,
-                  isNew: p.isNew,
-                  level: p.level,
-                  classCount: p.classIds.length,
-                };
-              })}
-              className="h-[480px]"
-            />
+          <section className="pb-6">
+            <SectionHeader title="Новые программы" action={{ label: 'Все', onClick: () => navigate('/search') }} />
+            <Carousel>
+              {newPrograms.map(p => (
+                <ProgramCard key={p.id} program={p} teacher={teacherMap.get(p.teacherId)} />
+              ))}
+            </Carousel>
           </section>
         )}
 
