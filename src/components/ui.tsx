@@ -107,8 +107,13 @@ interface ChipRowProps {
 
 export function ChipRow({ children, className }: ChipRowProps) {
   return (
-    <div className={cn('flex gap-2 overflow-x-auto scrollbar-hide py-1 chip-row-mask', className)}>
-      {children}
+    <div className={cn('flex gap-2 overflow-x-auto scrollbar-hide py-1 relative', className)}>
+      <div className="flex gap-2 px-5 -mx-5">
+        {children}
+      </div>
+      {/* Fade masks on edges */}
+      <div className="absolute left-0 top-0 bottom-0 w-5 bg-gradient-to-r from-bg to-transparent pointer-events-none" />
+      <div className="absolute right-0 top-0 bottom-0 w-5 bg-gradient-to-l from-bg to-transparent pointer-events-none" />
     </div>
   );
 }

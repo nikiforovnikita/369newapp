@@ -118,7 +118,7 @@ export function TodayPage() {
     <div className="animate-fade-in-up">
       {/* Sticky search + filters */}
       <div className="sticky top-[88px] z-30 bg-bg/95 backdrop-blur-md px-5 pt-3 pb-2">
-        <div onClick={() => navigate('/search')} className="cursor-pointer">
+        <div onClick={() => navigate('/search', { state: { fromToday: true } })} className="cursor-pointer">
           <SearchField value="" onChange={() => {}} placeholder="Поиск практик..." />
         </div>
         <div className="mt-3">
@@ -145,12 +145,20 @@ export function TodayPage() {
           <LiveBanner
             event={liveBanner}
             isLive={getLiveStatus(liveBanner) === 'live'}
+            onReminder={() => {
+              const reminders = useAppStore.getState().reminders;
+              if (reminders.includes(liveBanner.id)) {
+                useAppStore.getState().removeReminder(liveBanner.id);
+              } else {
+                useAppStore.getState().setReminder(liveBanner.id);
+              }
+            }}
           />
         )}
 
         {/* Continue */}
         {continueClasses.length > 0 && (
-          <section>
+          <section className="pb-6">
             <SectionHeader title="Продолжить" />
             <Carousel>
               {continueClasses.map(({ cls, progress: p }) => (
@@ -162,7 +170,7 @@ export function TodayPage() {
 
         {/* New Programs */}
         {newPrograms.length > 0 && (
-          <section>
+          <section className="pb-6">
             <SectionHeader title="Новые программы" action={{ label: 'Все', onClick: () => navigate('/search') }} />
             <Carousel>
               {newPrograms.map(p => (
@@ -173,7 +181,7 @@ export function TodayPage() {
         )}
 
         {/* Collections */}
-        <section>
+        <section className="pb-6">
           <SectionHeader title="Коллекции" action={{ label: 'Все', onClick: () => navigate('/search') }} />
           <Carousel>
             {collections.slice(0, 6).map(c => (

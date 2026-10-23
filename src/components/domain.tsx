@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bookmark, MoreHorizontal, Heart, Play, ChevronRight } from 'lucide-react';
+import { Bookmark, MoreHorizontal, Heart, Play, ChevronRight, Bell, BellRing } from 'lucide-react';
 import { cn, Badge, ProgressBar, Avatar } from './ui';
 import { formatDurationShort } from '../lib/format';
 import type { ClassItem, Program, Collection, Teacher } from '../types';
@@ -20,15 +20,16 @@ export function ProgramCard({ program, teacher }: { program: Program; teacher?: 
           </div>
         )}
         <div className="absolute bottom-2 right-2">
-          <span className="inline-flex items-center h-6 px-2 rounded-pill bg-black/50 text-white text-chip">
-            {program.classIds.length} классов
+          <span className="inline-flex items-center justify-center w-[28px] h-[28px] rounded-sm bg-white text-ink text-[11px] font-bold shadow-sm">
+            {program.classIds.length}
           </span>
         </div>
       </div>
-      <p className="text-eyebrow text-ink-3 mb-0.5">
-        {program.level === 1 ? 'Уровень 1' : program.level === 2 ? 'Уровень 2' : 'Уровень 3'}
-      </p>
-      <h3 className="text-title text-ink line-clamp-2">{program.title}</h3>
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-eyebrow text-ink-3">ПРОГРАММА</p>
+        <p className="text-eyebrow text-ink-3">УРОВЕНЬ {program.level}</p>
+      </div>
+      <h3 className="text-title text-ink line-clamp-2 mb-0.5">{program.title}</h3>
       {teacher && <p className="text-body-sm text-ink-2 truncate">{teacher.name}</p>}
     </Link>
   );
@@ -147,27 +148,48 @@ export function ContinueCard({ cls, progress }: { cls: ClassItem; progress: { wa
 }
 
 // LiveBanner
-export function LiveBanner({ event, isLive }: { event: { id: string; title: string; coverUrl: string; startsAt: string; durationMin: number }; isLive: boolean }) {
+export function LiveBanner({ event, isLive, onReminder }: { event: { id: string; title: string; coverUrl: string; startsAt: string; durationMin: number }; isLive: boolean; onReminder?: () => void }) {
   const minutesUntil = Math.max(0, Math.round((new Date(event.startsAt).getTime() - Date.now()) / 60000));
+  const reminders = useAppStore(s => s.reminders);
+  const isReminder = reminders.includes(event.id);
 
   return (
-    <Link to={`/live/${event.id}`} className="flex items-center gap-3 p-3 rounded-card bg-surface-2 mb-4">
-      <div className="w-[120px] h-20 rounded-media overflow-hidden shrink-0 relative" style={{ background: event.coverUrl }}>
+    <div className="flex items-center gap-3 p-3 rounded-card bg-surface-2 mb-4">
+      <Link to={`/live/${event.id}`} className="w-[120px] h-20 rounded-[12px] overflow-hidden shrink-0 relative block" style={{ background: event.coverUrl }}>
         {isLive && (
           <div className="absolute top-1.5 left-1.5">
             <Badge variant="live" />
           </div>
         )}
-      </div>
+      </Link>
       <div className="flex-1 min-w-0">
         <p className="text-body-sm text-ink-2">
           {isLive ? 'Сейчас в эфире' : `Через ${minutesUntil} мин`}
         </p>
-        <h3 className="text-title text-ink line-clamp-1">{event.title}</h3>
-        <span className="inline-flex items-center mt-1 h-7 px-3 rounded-pill bg-ink text-white text-chip font-medium">
-          Присоединиться
-        </span>
+        <Link to={`/live/${event.id}`}>
+          <h3 className="text-title text-ink line-clamp-1">{event.title}</h3>
+        </Link>
+        <div className="flex items-center gap-2 mt-1">
+          <Link to={`/live/${event.id}`}>
+            <span className="inline-flex items-center h-7 px-3 rounded-pill bg-ink text-white text-chip font-medium">
+              {isLive ? 'Присоединиться' : 'Подробнее'}
+            </span>
+          </Link>
+          {!isLive && onReminder && (
+            <button
+              onClick={(e) => { e.preventDefault(); onReminder(); }}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-line transition-colors"
+              aria-label={isReminder ? 'Убрать напоминание' : 'Установить напоминание'}
+            >
+              {isReminder ? (
+                <BellRing className="w-4 h-4 text-ink" />
+              ) : (
+                <Bell className="w-4 h-4 text-ink-3" />
+              )}
+            </button>
+          )}
+        </div>
       </div>
-    </Link>
+    </div>
   );
 }
