@@ -35,8 +35,23 @@ const posterGradients = [
   'linear-gradient(135deg, #F0F5E8 0%, #D4E8B8 100%)',
 ];
 
+const posterPalettes: string[][] = [
+  ['#B8D4B8', '#8FB88F', '#6A9C6A'],
+  ['#B8C8E8', '#8FA8D4', '#6A88C0'],
+  ['#D4B8E8', '#B88FD4', '#9C6AC0'],
+  ['#E8D4B8', '#D4B88F', '#C09C6A'],
+  ['#B8E8D4', '#8FD4B8', '#6AC09C'],
+  ['#E8B8B8', '#D48F8F', '#C06A6A'],
+  ['#B8B8E8', '#8F8FD4', '#6A6AC0'],
+  ['#D4E8B8', '#B8D48F', '#9CC06A'],
+];
+
 function getPoster(idx: number): string {
   return posterGradients[idx % posterGradients.length];
+}
+
+function getPalette(idx: number): string[] {
+  return posterPalettes[idx % posterPalettes.length];
 }
 
 const classNames: { title: string; type: PracticeType; categoryId: string; level: Level; duration: number; teacherId: string; tags: string[] }[] = [
@@ -113,6 +128,7 @@ export const classes: ClassItem[] = classNames.map((c, i) => ({
   level: c.level,
   durationSec: c.duration,
   posterUrl: getPoster(i),
+  palette: getPalette(i),
   videoUrl: '/media/sample.mp4',
   tags: c.tags,
   isNew: i < 12,
@@ -122,16 +138,16 @@ export const classes: ClassItem[] = classNames.map((c, i) => ({
 }));
 
 export const programs: Program[] = [
-  { id: 'p1', title: '30 дней йоги', coverUrl: getPoster(0), teacherId: 't1', categoryIds: ['yoga', 'beginners'], level: 1, classIds: ['c2', 'c5', 'c8', 'c42', 'c9'], isNew: true, description: 'Месячная программа для формирования привычки ежедневной практики' },
-  { id: 'p2', title: 'Гибкое тело', coverUrl: getPoster(1), teacherId: 't8', categoryIds: ['stretch', 'yoga'], level: 2, classIds: ['c30', 'c31', 'c33', 'c34'], description: 'Программа для развития гибкости и мобильности суставов' },
-  { id: 'p3', title: 'Дыхательная перезагрузка', coverUrl: getPoster(2), teacherId: 't2', categoryIds: ['breathwork'], level: 1, classIds: ['c11', 'c12', 'c13', 'c14', 'c15'], isNew: true, description: 'Научитесь управлять своим состоянием через дыхание' },
-  { id: 'p4', title: 'Ум и спокойствие', coverUrl: getPoster(3), teacherId: 't3', categoryIds: ['meditation'], level: 1, classIds: ['c17', 'c18', 'c19', 'c22'], description: 'Путь к внутреннему покою через ежедневную медитацию' },
-  { id: 'p5', title: 'Сильный кор', coverUrl: getPoster(4), teacherId: 't5', categoryIds: ['pilates'], level: 2, classIds: ['c25', 'c26', 'c28', 'c54'], description: 'Укрепите мышцы кора за 4 недели' },
-  { id: 'p6', title: 'Цигун: путь энергии', coverUrl: getPoster(5), teacherId: 't4', categoryIds: ['qigong'], level: 1, classIds: ['c35', 'c36', 'c37', 'c38'], description: 'Древняя практика для здоровья и долголетия' },
-  { id: 'p7', title: 'Идеальный сон', coverUrl: getPoster(6), teacherId: 't10', categoryIds: ['sleep', 'meditation'], level: 1, classIds: ['c39', 'c40', 'c41'], isNew: true, description: 'Вечерние ритуалы для глубокого и качественного сна' },
-  { id: 'p8', title: 'Йога для офиса', coverUrl: getPoster(7), teacherId: 't6', categoryIds: ['yoga', 'stretch'], level: 1, classIds: ['c5', 'c9', 'c32', 'c59'], description: 'Быстрые практики для тех, кто много сидит' },
-  { id: 'p9', title: 'Продвинутая виньяса', coverUrl: getPoster(0), teacherId: 't7', categoryIds: ['yoga'], level: 3, classIds: ['c1', 'c4', 'c48', 'c49'], description: 'Динамичная практика для опытных йогов' },
-  { id: 'p10', title: 'Первые шаги', coverUrl: getPoster(1), teacherId: 't1', categoryIds: ['beginners'], level: 1, classIds: ['c42', 'c43', 'c44', 'c45', 'c46', 'c47'], isNew: true, description: 'Всё, что нужно для начала практики' },
+  { id: 'p1', title: '30 дней йоги', coverUrl: getPoster(0), palette: getPalette(0), teacherId: 't1', categoryIds: ['yoga', 'beginners'], level: 1, classIds: ['c2', 'c5', 'c8', 'c42', 'c9'], isNew: true, description: 'Месячная программа для формирования привычки ежедневной практики' },
+  { id: 'p2', title: 'Гибкое тело', coverUrl: getPoster(1), palette: getPalette(1), teacherId: 't8', categoryIds: ['stretch', 'yoga'], level: 2, classIds: ['c30', 'c31', 'c33', 'c34'], description: 'Программа для развития гибкости и мобильности суставов' },
+  { id: 'p3', title: 'Дыхательная перезагрузка', coverUrl: getPoster(2), palette: getPalette(2), teacherId: 't2', categoryIds: ['breathwork'], level: 1, classIds: ['c11', 'c12', 'c13', 'c14', 'c15'], isNew: true, description: 'Научитесь управлять своим состоянием через дыхание' },
+  { id: 'p4', title: 'Ум и спокойствие', coverUrl: getPoster(3), palette: getPalette(3), teacherId: 't3', categoryIds: ['meditation'], level: 1, classIds: ['c17', 'c18', 'c19', 'c22'], description: 'Путь к внутреннему покою через ежедневную медитацию' },
+  { id: 'p5', title: 'Сильный кор', coverUrl: getPoster(4), palette: getPalette(4), teacherId: 't5', categoryIds: ['pilates'], level: 2, classIds: ['c25', 'c26', 'c28', 'c54'], description: 'Укрепите мышцы кора за 4 недели' },
+  { id: 'p6', title: 'Цигун: путь энергии', coverUrl: getPoster(5), palette: getPalette(5), teacherId: 't4', categoryIds: ['qigong'], level: 1, classIds: ['c35', 'c36', 'c37', 'c38'], description: 'Древняя практика для здоровья и долголетия' },
+  { id: 'p7', title: 'Идеальный сон', coverUrl: getPoster(6), palette: getPalette(6), teacherId: 't10', categoryIds: ['sleep', 'meditation'], level: 1, classIds: ['c39', 'c40', 'c41'], isNew: true, description: 'Вечерние ритуалы для глубокого и качественного сна' },
+  { id: 'p8', title: 'Йога для офиса', coverUrl: getPoster(7), palette: getPalette(7), teacherId: 't6', categoryIds: ['yoga', 'stretch'], level: 1, classIds: ['c5', 'c9', 'c32', 'c59'], description: 'Быстрые практики для тех, кто много сидит' },
+  { id: 'p9', title: 'Продвинутая виньяса', coverUrl: getPoster(0), palette: getPalette(0), teacherId: 't7', categoryIds: ['yoga'], level: 3, classIds: ['c1', 'c4', 'c48', 'c49'], description: 'Динамичная практика для опытных йогов' },
+  { id: 'p10', title: 'Первые шаги', coverUrl: getPoster(1), palette: getPalette(1), teacherId: 't1', categoryIds: ['beginners'], level: 1, classIds: ['c42', 'c43', 'c44', 'c45', 'c46', 'c47'], isNew: true, description: 'Всё, что нужно для начала практики' },
 ];
 
 export const collections: Collection[] = [
