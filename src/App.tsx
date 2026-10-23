@@ -22,7 +22,19 @@ function AppContent() {
   }, [loadUser]);
 
   // Loading state
-  if (!profile) {
+  if (profile === null) {
+    // Check if profile exists in storage
+    const hasProfile = localStorage.getItem('pk:user:profile');
+    if (!hasProfile) {
+      // No profile - redirect to onboarding
+      return (
+        <Routes>
+          <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route path="*" element={<Navigate to="/onboarding" replace />} />
+        </Routes>
+      );
+    }
+    // Profile exists but not loaded yet - show loading
     return (
       <div className="min-h-dvh flex items-center justify-center bg-bg">
         <div className="text-center">
@@ -33,7 +45,7 @@ function AppContent() {
     );
   }
 
-  // Show onboarding if not done
+  // Profile loaded but onboarding not done
   if (!profile.onboardingDone) {
     return (
       <Routes>

@@ -134,8 +134,14 @@ export const repository = {
   },
 
   // Profile
-  async getProfile(): Promise<Profile> {
-    return cachedGet<Profile>('user:profile', {
+  async getProfile(): Promise<Profile | null> {
+    const profile = cachedGet<Profile | null>('user:profile', null);
+    return profile;
+  },
+
+  async updateProfile(profile: Partial<Profile>): Promise<Profile> {
+    const current = await this.getProfile();
+    const defaultProfile: Profile = {
       id: 'u1',
       name: 'Гость',
       avatarColor: '#E8B4B8',
@@ -145,12 +151,8 @@ export const repository = {
       weeklyGoal: 120,
       createdAt: new Date().toISOString(),
       onboardingDone: false,
-    });
-  },
-
-  async updateProfile(profile: Partial<Profile>): Promise<Profile> {
-    const current = await this.getProfile();
-    const updated = { ...current, ...profile };
+    };
+    const updated = { ...(current || defaultProfile), ...profile };
     cachedSet('user:profile', updated);
     return updated;
   },

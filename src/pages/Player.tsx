@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { X, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Maximize, Settings, Heart, MoreHorizontal, Monitor } from 'lucide-react';
-import { cn, Sheet, PillButton, ProgressBar } from '../components/ui';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { X, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Maximize, Minimize, Monitor, Check } from 'lucide-react';
+import { cn, Sheet, PillButton } from '../components/ui';
 import { repository } from '../lib/repository';
 import { useAppStore } from '../store';
 import { formatTime, formatDurationMin } from '../lib/format';
@@ -10,15 +10,18 @@ import type { ClassItem } from '../types';
 export function PlayerPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const saveProgress = useAppStore(s => s.saveProgress);
   const appendSession = useAppStore(s => s.appendSession);
   const progress = useAppStore(s => s.progress);
   const queue = useAppStore(s => s.queue);
-  const showToast = useAppStore(s => s.showToast);
   const sessions = useAppStore(s => s.sessions);
+  const showToast = useAppStore(s => s.showToast);
 
   const [cls, setCls] = useState<ClassItem | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -33,82 +36,102 @@ export function PlayerPage() {
   const [screenOff, setScreenOff] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
-  const [seekPreview, setSeekPreview] = useState<number | null>(null);
   const [videoError, setVideoError] = useState(false);
-  const [demoMode, setDemoMode] = useState(false);
+  const [skipIndicator, setSkipIndicator] = useState<{ direction: 'left' | 'right'; visible: boolean }>({ direction: 'left', visible: false });
 
-  const controlsTimeout = useRef<ReturnType<typeof setTimeout>>();
-  const saveTimeout = useRef<ReturnType<typeof setTimeout>>();
-  const startTime = useRef(Date.now());
-  const watchedSeconds = useRef(0);
-  const demoInterval = useRef<ReturnType<typeof setInterval>>();
+  const startTimeRef = useRef(Date.now());
+  const watchedSecondsRef = useRef(0);
+  const lastSaveTimeRef = useRef(0);
 
+  // Load class
   useEffect(() => {
     if (!id) return;
+
+    const source = (location.state as any)?.source || 'deep-link';
+    console.log('[analytics] play', { classId: id, source });
+
     repository.getClass(id).then(c => {
-      if (!c) { navigate('/'); return; }
+      if (!c) {
+        navigate('/');
+        return;
+      }
       setCls(c);
       setDuration(c.durationSec);
 
       // Check for resume position
       const existingProgress = progress[c.id];
-      if (existingProgress && !existingProgress.completed && existingProgress.watchedSec > 10 && existingProgress.watchedSec < c.durationSec * 0.95) {
+      if (existingProgress && !existingProgress.completed && existingProgress.watchedSec >= 10 && existingProgress.watchedSec < c.durationSec * 0.95) {
         setShowResume(true);
       }
     });
-  }, [id, navigate]);
+  }, [id, navigate, location.state, progress]);
 
   // Auto-hide controls
   const resetControlsTimer = useCallback(() => {
     setShowControls(true);
-    if (controlsTimeout.current) clearTimeout(controlsTimeout.current);
-    controlsTimeout.current = setTimeout(() => {
-      if (playing) setShowControls(false);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    controlsTimeoutRef.current = setTimeout(() => {
+      if (playing && !showResume && !completed) setShowControls(false);
     }, 3000);
-  }, [playing]);
+  }, [playing, showResume, completed]);
 
   useEffect(() => {
     resetControlsTimer();
-    return () => { if (controlsTimeout.current) clearTimeout(controlsTimeout.current); };
+    return () => { if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current); };
   }, [playing, resetControlsTimer]);
 
-  // Save progress debounced
+  // Save progress
   const savePosition = useCallback(() => {
     if (!cls || !videoRef.current) return;
     const pos = videoRef.current.currentTime;
-    saveProgress({
-      classId: cls.id,
-      watchedSec: Math.round(pos),
-      totalSec: cls.durationSec,
-      completed: pos >= cls.durationSec * 0.95,
-      lastPosition: Math.round(pos),
-      updatedAt: new Date().toISOString(),
-    });
-  }, [cls, saveProgress]);
+    const now = Date.now();
 
-  const debouncedSave = useCallback(() => {
-    if (saveTimeout.current) clearTimeout(saveTimeout.current);
-    saveTimeout.current = setTimeout(savePosition, 5000);
-  }, [savePosition]);
+    // Debounce saves (5 seconds)
+    if (now - lastSaveTimeRef.current < 5000) return;
+    lastSaveTimeRef.current = now;
 
-  // Demo mode - simulate playback when no video
+    try {
+      saveProgress({
+        classId: cls.id,
+        watchedSec: Math.round(watchedSecondsRef.current),
+        totalSec: cls.durationSec,
+        completed: pos >= cls.durationSec * 0.95,
+        lastPosition: Math.round(pos),
+        updatedAt: new Date().toISOString(),
+      });
+    } catch {
+      showToast('Не удалось сохранить прогресс', 'error');
+    }
+  }, [cls, saveProgress, showToast]);
+
+  // Time update
   useEffect(() => {
-    if (!demoMode || !cls) return;
-    if (playing) {
-      demoInterval.current = setInterval(() => {
-        setCurrentTime(prev => {
-          const next = prev + 1;
-          watchedSeconds.current += 1;
-          if (next >= cls.durationSec * 0.95) {
-            setCompleted(true);
-            setPlaying(false);
-            if (demoInterval.current) clearInterval(demoInterval.current);
+    const video = videoRef.current;
+    if (!video) return;
+
+    const onTimeUpdate = () => {
+      setCurrentTime(video.currentTime);
+      watchedSecondsRef.current += 1;
+
+      // Debounced save
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(savePosition, 5000);
+
+      // Check completion
+      if (video.currentTime >= video.duration * 0.95 && video.duration > 0 && !completed) {
+        setCompleted(true);
+        setPlaying(false);
+        console.log('[analytics] complete', { classId: cls?.id, positionSec: video.currentTime, durationSec: video.duration });
+
+        // Save session
+        if (cls) {
+          try {
             appendSession({
               id: `s-${Date.now()}`,
               classId: cls.id,
-              startedAt: new Date(startTime.current).toISOString(),
+              startedAt: new Date(startTimeRef.current).toISOString(),
               endedAt: new Date().toISOString(),
-              watchedSec: Math.round(watchedSeconds.current),
+              watchedSec: Math.round(watchedSecondsRef.current),
               totalSec: cls.durationSec,
               completed: true,
             });
@@ -120,56 +143,16 @@ export function PlayerPage() {
               lastPosition: 0,
               updatedAt: new Date().toISOString(),
             });
-            return cls.durationSec;
+          } catch {
+            showToast('Не удалось сохранить сессию', 'error');
           }
-          return next;
-        });
-      }, 1000);
-    } else {
-      if (demoInterval.current) clearInterval(demoInterval.current);
-    }
-    return () => { if (demoInterval.current) clearInterval(demoInterval.current); };
-  }, [demoMode, playing, cls, appendSession, saveProgress]);
-
-  // Time update (real video)
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || demoMode) return;
-
-    const onTimeUpdate = () => {
-      setCurrentTime(video.currentTime);
-      watchedSeconds.current += 1;
-      debouncedSave();
-
-      // Check completion
-      if (video.currentTime >= video.duration * 0.95 && video.duration > 0) {
-        setCompleted(true);
-        setPlaying(false);
-        if (cls) {
-          appendSession({
-            id: `s-${Date.now()}`,
-            classId: cls.id,
-            startedAt: new Date(startTime.current).toISOString(),
-            endedAt: new Date().toISOString(),
-            watchedSec: Math.round(watchedSeconds.current),
-            totalSec: cls.durationSec,
-            completed: true,
-          });
-          saveProgress({
-            classId: cls.id,
-            watchedSec: cls.durationSec,
-            totalSec: cls.durationSec,
-            completed: true,
-            lastPosition: 0,
-            updatedAt: new Date().toISOString(),
-          });
         }
       }
     };
 
     video.addEventListener('timeupdate', onTimeUpdate);
     return () => video.removeEventListener('timeupdate', onTimeUpdate);
-  }, [cls, debouncedSave, appendSession, saveProgress, demoMode]);
+  }, [cls, savePosition, appendSession, saveProgress, completed, showToast]);
 
   // Save on pause/unmount
   useEffect(() => {
@@ -196,10 +179,12 @@ export function PlayerPage() {
           togglePlay();
           break;
         case 'ArrowLeft':
-          video.currentTime = Math.max(0, video.currentTime - 5);
+          e.preventDefault();
+          seek(Math.max(0, video.currentTime - 5));
           break;
         case 'ArrowRight':
-          video.currentTime = Math.min(video.duration, video.currentTime + 5);
+          e.preventDefault();
+          seek(Math.min(video.duration, video.currentTime + 5));
           break;
         case 'ArrowUp':
           e.preventDefault();
@@ -230,36 +215,41 @@ export function PlayerPage() {
   }, [navigate, resetControlsTimer]);
 
   const togglePlay = () => {
-    if (demoMode) {
-      setPlaying(!playing);
-      return;
-    }
     const video = videoRef.current;
     if (!video) return;
     if (video.paused) {
-      video.play().catch(() => { setDemoMode(true); setPlaying(true); });
+      video.play().catch(() => {});
       setPlaying(true);
+      console.log('[analytics] play', { classId: cls?.id, positionSec: video.currentTime, durationSec: video.duration });
     } else {
       video.pause();
       setPlaying(false);
       savePosition();
+      console.log('[analytics] pause', { classId: cls?.id, positionSec: video.currentTime, durationSec: video.duration });
     }
   };
 
   const seek = (time: number) => {
-    if (demoMode) {
-      setCurrentTime(Math.max(0, Math.min(time, cls?.durationSec || 0)));
-      return;
-    }
     const video = videoRef.current;
     if (!video) return;
     video.currentTime = time;
     setCurrentTime(time);
-    savePosition();
+    console.log('[analytics] seek', { classId: cls?.id, positionSec: time, durationSec: video.duration });
+    // Save after seek (400ms delay)
+    setTimeout(savePosition, 400);
   };
 
-  const skipBack = () => seek(Math.max(0, currentTime - 15));
-  const skipForward = () => seek(Math.min(duration, currentTime + 15));
+  const skipBack = () => {
+    seek(Math.max(0, currentTime - 15));
+    setSkipIndicator({ direction: 'left', visible: true });
+    setTimeout(() => setSkipIndicator({ direction: 'left', visible: false }), 500);
+  };
+
+  const skipForward = () => {
+    seek(Math.min(duration, currentTime + 15));
+    setSkipIndicator({ direction: 'right', visible: true });
+    setTimeout(() => setSkipIndicator({ direction: 'right', visible: false }), 500);
+  };
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -277,10 +267,17 @@ export function PlayerPage() {
         seek(existingProgress.lastPosition);
       }
     }
-    if (demoMode) {
+    if (videoRef.current) {
+      videoRef.current.play().catch(() => {});
       setPlaying(true);
-    } else if (videoRef.current) {
-      videoRef.current.play().catch(() => { setDemoMode(true); setPlaying(true); });
+    }
+  };
+
+  const handleTapZone = (side: 'left' | 'right') => {
+    if (side === 'left') {
+      skipBack();
+    } else {
+      skipForward();
     }
   };
 
@@ -289,18 +286,33 @@ export function PlayerPage() {
   // Screen off mode
   if (screenOff) {
     return (
-      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center z-50">
-        <p className="text-white/50 text-body-sm mb-8">Экран выключен</p>
+      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center z-50" onClick={() => setScreenOff(false)}>
         <button onClick={togglePlay} className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mb-8">
           {playing ? <Pause className="w-8 h-8 text-white" /> : <Play className="w-8 h-8 text-white ml-1" />}
         </button>
         <p className="text-white text-display">{formatTime(duration - currentTime)}</p>
-        <button onClick={() => setScreenOff(false)} className="mt-8 text-white/50 text-body-sm underline">
-          Вернуть экран
-        </button>
+        <p className="text-white/50 text-body-sm mt-4">Нажмите для возврата</p>
       </div>
     );
   }
+
+  // Stats for completion overlay
+  const todaySessions = sessions.filter(s => new Date(s.startedAt).toDateString() === new Date().toDateString());
+  const todayMinutes = Math.round(todaySessions.reduce((sum, s) => sum + s.watchedSec, 0) / 60);
+  const weekMinutes = Math.round(sessions.filter(s => Date.now() - new Date(s.startedAt).getTime() < 7 * 86400000).reduce((sum, s) => sum + s.watchedSec, 0) / 60);
+
+  // Streak calculation
+  const streakDays = (() => {
+    const today = new Date();
+    const days = new Set(sessions.map(s => new Date(s.startedAt).toDateString()));
+    let streak = 0;
+    let checkDate = today;
+    while (days.has(checkDate.toDateString())) {
+      streak++;
+      checkDate = new Date(checkDate.getTime() - 86400000);
+    }
+    return streak;
+  })();
 
   return (
     <div ref={containerRef} className="fixed inset-0 bg-black z-50" onClick={resetControlsTimer}>
@@ -308,18 +320,21 @@ export function PlayerPage() {
         ref={videoRef}
         className="absolute inset-0 w-full h-full object-contain"
         playsInline
+        preload="metadata"
+        poster={cls.posterUrl}
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
-        onError={() => { setVideoError(true); setDemoMode(true); setDuration(cls.durationSec); }}
+        onError={() => setVideoError(true)}
       >
         <source src={cls.videoUrl} type="video/mp4" />
       </video>
 
-      {/* Poster fallback - always show when not playing or at start */}
-      {!playing && (
-        <div className="absolute inset-0 flex items-center justify-center" style={{ background: cls.posterUrl }}>
-          <button onClick={togglePlay} className="w-[72px] h-[72px] rounded-full bg-white/90 flex items-center justify-center shadow-lg hover:scale-105 transition-transform">
-            <Play className="w-8 h-8 text-ink ml-1" fill="currentColor" />
-          </button>
+      {/* Video error overlay */}
+      {videoError && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-50">
+          <p className="text-white text-h2 mb-4">Не удалось загрузить видео</p>
+          <PillButton variant="outline" size="lg" onClick={() => { setVideoError(false); videoRef.current?.load(); }}>
+            Повторить
+          </PillButton>
         </div>
       )}
 
@@ -336,7 +351,7 @@ export function PlayerPage() {
           </button>
           <p className="text-white text-title text-center flex-1 mx-4 line-clamp-1">{cls.title}</p>
           <button onClick={() => setShowMenu(true)} className="w-11 h-11 flex items-center justify-center rounded-full bg-white/10" aria-label="Меню">
-            <MoreHorizontal className="w-5 h-5 text-white" />
+            <span className="text-white text-h2">⋯</span>
           </button>
         </div>
 
@@ -348,8 +363,15 @@ export function PlayerPage() {
         </div>
 
         {/* Tap zones for skip */}
-        <button onClick={skipBack} className="absolute left-0 top-1/3 bottom-1/3 w-1/3" aria-label="Назад 15 секунд" />
-        <button onClick={skipForward} className="absolute right-0 top-1/3 bottom-1/3 w-1/3" aria-label="Вперёд 15 секунд" />
+        <button onClick={() => handleTapZone('left')} className="absolute left-0 top-1/3 bottom-1/3 w-1/3" aria-label="Назад 15 секунд" />
+        <button onClick={() => handleTapZone('right')} className="absolute right-0 top-1/3 bottom-1/3 w-1/3" aria-label="Вперёд 15 секунд" />
+
+        {/* Skip indicators */}
+        {skipIndicator.visible && (
+          <div className={cn('absolute top-1/2 -translate-y-1/2 text-white text-h1 font-bold animate-pulse', skipIndicator.direction === 'left' ? 'left-8' : 'right-8')}>
+            {skipIndicator.direction === 'left' ? '−15' : '+15'}
+          </div>
+        )}
 
         {/* Bottom controls */}
         <div className="absolute bottom-0 left-0 right-0 px-5 pb-6 safe-bottom">
@@ -358,7 +380,7 @@ export function PlayerPage() {
             <input
               type="range"
               min={0}
-              max={duration || cls.durationSec || 100}
+              max={duration || 100}
               value={currentTime}
               onChange={(e) => seek(Number(e.target.value))}
               className="w-full h-1 appearance-none bg-white/30 rounded-full cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
@@ -366,9 +388,9 @@ export function PlayerPage() {
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-white text-body-sm">{formatTime(currentTime)}</span>
+            <span className="text-white text-chip">{formatTime(currentTime)}</span>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button onClick={skipBack} className="w-10 h-10 flex items-center justify-center" aria-label="Назад 15 сек">
                 <SkipBack className="w-5 h-5 text-white" />
               </button>
@@ -387,9 +409,12 @@ export function PlayerPage() {
               <button onClick={() => setScreenOff(true)} className="w-10 h-10 flex items-center justify-center" aria-label="Экран выключен">
                 <Monitor className="w-5 h-5 text-white" />
               </button>
+              <button onClick={() => setShowQueue(true)} className="w-10 h-10 flex items-center justify-center" aria-label="Очередь">
+                <span className="text-white text-chip">≡</span>
+              </button>
             </div>
 
-            <span className="text-white text-body-sm">{formatTime(duration)}</span>
+            <span className="text-white text-chip">{formatTime(duration)}</span>
           </div>
         </div>
       </div>
@@ -409,19 +434,23 @@ export function PlayerPage() {
       {completed && (
         <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
           <div className="w-16 h-16 rounded-full bg-success flex items-center justify-center mb-4">
-            <span className="text-white text-3xl">✓</span>
+            <Check className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-h1 text-white mb-2">Практика завершена</h2>
-          <p className="text-body text-white/60 mb-8">{formatDurationMin(cls.durationSec)} практики</p>
+          <p className="text-body text-white/60 mb-8">{formatDurationMin(cls.durationSec)} · {cls.type}</p>
 
           <div className="flex gap-6 mb-8">
             <div className="text-center">
-              <p className="text-display text-white">{Math.round(sessions.filter(s => new Date(s.startedAt).toDateString() === new Date().toDateString()).reduce((sum, s) => sum + s.watchedSec, 0) / 60)}</p>
-              <p className="text-chip text-white/60">мин сегодня</p>
+              <p className="text-display text-white">{todaySessions.length}</p>
+              <p className="text-chip text-white/60">практик сегодня</p>
             </div>
             <div className="text-center">
-              <p className="text-display text-white">{sessions.filter(s => s.completed).length}</p>
-              <p className="text-chip text-white/60">практик</p>
+              <p className="text-display text-white">{weekMinutes}</p>
+              <p className="text-chip text-white/60">минут за неделю</p>
+            </div>
+            <div className="text-center">
+              <p className="text-display text-white">{streakDays}</p>
+              <p className="text-chip text-white/60">дней серия</p>
             </div>
           </div>
 
@@ -452,6 +481,30 @@ export function PlayerPage() {
               ))}
             </div>
           </div>
+        </div>
+      </Sheet>
+
+      {/* Queue sheet */}
+      <Sheet open={showQueue} onClose={() => setShowQueue(false)} title="Очередь">
+        <div className="space-y-2">
+          {queue.length === 0 ? (
+            <p className="text-body text-ink-2 text-center py-8">Очередь пуста</p>
+          ) : (
+            queue.map((item, i) => (
+              <Link
+                key={item.id}
+                to={`/play/${item.id}`}
+                onClick={() => setShowQueue(false)}
+                className={cn('flex items-center gap-3 p-3 rounded-card', item.id === cls.id ? 'bg-surface-2 border border-ink' : 'hover:bg-surface-2')}
+              >
+                <span className="text-chip text-ink-3 w-6">{i + 1}</span>
+                <p className="text-body text-ink flex-1 line-clamp-1">
+                  {item.id === cls.id ? cls.title : `Практика ${item.id}`}
+                </p>
+                {item.id === cls.id && <span className="text-chip text-ink font-medium">Сейчас</span>}
+              </Link>
+            ))
+          )}
         </div>
       </Sheet>
     </div>

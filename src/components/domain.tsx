@@ -13,7 +13,12 @@ export function ProgramCard({ program, teacher }: { program: Program; teacher?: 
 
   return (
     <Link to={`/program/${program.id}`} className="block w-[160px] shrink-0 scroll-snap-start">
-      <div className="relative aspect-[4/5] rounded-card overflow-hidden mb-2" style={{ background: program.coverUrl }}>
+      <div
+        className="relative aspect-[4/5] rounded-card overflow-hidden mb-2"
+        style={{ background: program.coverUrl }}
+        role="img"
+        aria-label={program.title}
+      >
         {program.isNew && (
           <div className="absolute top-2 left-2">
             <Badge variant="new" />
@@ -41,7 +46,12 @@ export function CollectionCard({ collection }: { collection: Collection }) {
 
   return (
     <Link to={`/collection/${collection.id}`} className="block w-[160px] shrink-0 scroll-snap-start">
-      <div className="relative aspect-square rounded-card overflow-hidden mb-2" style={{ background: collection.coverUrl }}>
+      <div
+        className="relative aspect-square rounded-card overflow-hidden mb-2"
+        style={{ background: collection.coverUrl }}
+        role="img"
+        aria-label={collection.title}
+      >
         {collection.isNew && (
           <div className="absolute top-2 left-2">
             <Badge variant="new" />
@@ -65,7 +75,12 @@ export function CollectionCard({ collection }: { collection: Collection }) {
 export function HeroCard({ cls, teacher, categoryTitle }: { cls: ClassItem; teacher?: Teacher; categoryTitle?: string }) {
   return (
     <Link to={`/class/${cls.id}`} className="block">
-      <div className="relative aspect-[2/1] rounded-card overflow-hidden mb-3" style={{ background: cls.posterUrl }}>
+      <div
+        className="relative aspect-[2/1] rounded-card overflow-hidden mb-3"
+        style={{ background: cls.posterUrl }}
+        role="img"
+        aria-label={cls.title}
+      >
         {cls.isNew && (
           <div className="absolute top-3 left-3">
             <Badge variant="new" />
@@ -100,7 +115,12 @@ export function HeroCard({ cls, teacher, categoryTitle }: { cls: ClassItem; teac
 export function ClassRow({ cls, teacher, categoryTitle, onMore }: { cls: ClassItem; teacher?: Teacher; categoryTitle?: string; onMore?: () => void }) {
   return (
     <Link to={`/class/${cls.id}`} className="flex items-center gap-3 py-3 group">
-      <div className="w-24 h-24 rounded-row overflow-hidden shrink-0 relative" style={{ background: cls.posterUrl }}>
+      <div
+        className="w-24 h-24 rounded-row overflow-hidden shrink-0 relative"
+        style={{ background: cls.posterUrl }}
+        role="img"
+        aria-label={cls.title}
+      >
         {cls.isNew && (
           <div className="absolute top-1 left-1">
             <Badge variant="new" />
@@ -133,7 +153,12 @@ export function ContinueCard({ cls, progress }: { cls: ClassItem; progress: { wa
 
   return (
     <Link to={`/play/${cls.id}`} className="block w-[280px] shrink-0 scroll-snap-start">
-      <div className="relative aspect-video rounded-card overflow-hidden mb-2" style={{ background: cls.posterUrl }}>
+      <div
+        className="relative aspect-video rounded-card overflow-hidden mb-2"
+        style={{ background: cls.posterUrl }}
+        role="img"
+        aria-label={cls.title}
+      >
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
             <Play className="w-5 h-5 text-ink ml-0.5" fill="currentColor" />
@@ -155,7 +180,7 @@ export function LiveBanner({ event, isLive, onReminder }: { event: { id: string;
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-card bg-surface-2 mb-4">
-      <Link to={`/live/${event.id}`} className="w-[120px] h-20 rounded-[12px] overflow-hidden shrink-0 relative block" style={{ background: event.coverUrl }}>
+      <Link to={`/live/${event.id}`} className="w-[120px] h-20 rounded-[12px] overflow-hidden shrink-0 relative block" style={{ background: event.coverUrl }} role="img" aria-label={event.title}>
         {isLive && (
           <div className="absolute top-1.5 left-1.5">
             <Badge variant="live" />
